@@ -1,0 +1,9 @@
+	WSGIDaemonProcess trustyserver threads=5
+	WSGIScriptAlias / /var/www/html/trusty-server/trustyserver.wsgi
+
+	<Directory /var/www/html/trusty-server>
+       WSGIProcessGroup trustyserver
+       WSGIApplicationGroup %{GLOBAL}
+       Order deny,allow
+       Allow from all
+	</Directory>
