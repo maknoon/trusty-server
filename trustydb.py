@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import strings
 import MySQLdb
 from datetime import datetime
 
@@ -39,9 +40,10 @@ class TrustyDb(object):
                                  db=self.db)
         cursor = trusty.cursor()
 
-        cursor.execute('DROP TABLE IF EXISTS REMINDERS')
-        cursor.execute('DROP TABLE IF EXISTS LOCATIONS')
-        cursor.execute('DROP TABLE IF EXISTS USERS')
+        drop = 'DROP TABLE IF EXISTS {}'
+        cursor.execute(drop.format('REMINDERS'))
+        cursor.execute(drop.format('LOCATIONS'))
+        cursor.execute(drop.format('USERS'))
 
         raw_users_query = """CREATE TABLE USERS (
                              U_ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -49,7 +51,7 @@ class TrustyDb(object):
                              U_AGE INT,
                              U_HOME_ADDR VARCHAR(128) )"""
         cursor.execute(raw_users_query)
-        print('Created new USERS table in {}'.format(self.db))
+        print((strings.create_table).format('USERS',self.db))
 
         raw_reminders_query = """CREATE TABLE REMINDERS (
                                  R_ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -59,7 +61,7 @@ class TrustyDb(object):
                                  R_UID INT,
                                  FOREIGN KEY (R_UID) REFERENCES USERS(U_ID) )"""
         cursor.execute(raw_reminders_query)
-        print('Created new REMINDERS table in {}'.format(self.db))
+        print((strings.create_table).format('REMINDERS',self.db))
 
         raw_location_query = """CREATE TABLE LOCATIONS (
                                 L_ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -70,7 +72,7 @@ class TrustyDb(object):
                                 L_UID INT,
                                 FOREIGN KEY (L_UID) REFERENCES USERS(U_ID) )"""
         cursor.execute(raw_location_query)
-        print('Created new LOCATIONS table in {}'.format(self.db))
+        print((strings.create_table).format('LOCATIONS',self.db))
 
         trusty.close()
 
@@ -89,16 +91,15 @@ class TrustyDb(object):
         add_user_query = """INSERT INTO USERS (
                             U_NAME, U_AGE, U_HOME_ADDR ) VALUES (
                             '%s', '%s', '%s' )""" % (u_name, u_age, u_addr)
-
-        print('Query to add {}'.format(add_user_query))
+        print(add_user_query)
 
         try:
             cursor.execute(add_user_query)
             db.commit()
-            print('Added user successfully!')
+            print((strings.add_success).format('user',u_name,'USERS'))
 
         except:
-            print('Failed to add user!')
+            print((strings.add_failed).format('user',u_name,'USERS'))
             db.rollback()
 
         db.close()
@@ -117,24 +118,77 @@ class TrustyDb(object):
 
         get_user_query = """SELECT * FROM USERS WHERE
                             U_NAME = '%s'""" % u_name
-
-        print('Query to fetch {}'.format(get_user_query))
+        print(get_user_query)
 
         try:
             cursor.execute(get_user_query)
             data = cursor.fetchone()
-            print('U_ID: {0} | U_NAME: {1} | U_AGE: {2} | \
-                   U_HOME_ADDR: {3}'.format(data[0], data[1],
-                    data[2], data[3]))
-
+            print((strings.get_success).format(u_name,'USERS'))
+            print('U_ID: {0} | U_NAME: {1} | U_AGE: {2} |\
+             U_HOME_ADDR: {3}'.format(data[0], data[1], data[2], data[3]))
             db.close()
+
             return data
 
         except:
-            print('Failed to fetch user!')
-
+            print((strings.get_failed).format(u_name,'USERS'))
             db.close()
+
             return 0
+
+
+    '''
+    function: delete_user
+    description: delete all data of a user given the user_name
+    '''
+    def delete_user(self,u_name):
+        db = MySQLdb.connect(host=self.host,
+                             user=self.user,
+                             passwd=self.pw,
+                             db=self.db)
+        cursor = db.cursor()
+
+        delete_u_reminders_query = """DELETE FROM REMINDERS WHERE
+                                      R_UID = (SELECT U_ID FROM USERS WHERE
+                                      U_NAME = '%s')""" % (u_name)
+        delete_u_locations_query = """DELETE FROM LOCATIONS WHERE
+                                      L_UID = (SELECT U_ID FROM USERS WHERE
+                                      U_NAME = '%s')""" % (u_name)
+        delete_user_query = """DELETE FROM USERS WHERE
+                               U_NAME = '%s'""" % (u_name)
+
+        print(delete_u_reminders_query)
+        print(delete_u_locations_query)
+        print(delete_user_query)
+
+        try:
+            cursor.execute(delete_u_reminders_query)
+            db.commit()
+            print((strings.delete_success).format(u_name,'REMINDERS'))
+
+        except:
+            print((strings.delete_failed).format(u_name,'REMINDERS'))
+            db.rollback()
+
+        try:
+            cursor.execute(delete_u_locations_query)
+            db.commit()
+            print((strings.delete_success).format(u_name,'LOCATIONS'))
+
+        except:
+            print((strings.delete_failed).format(u_name,'LOCATIONS'))
+            db.rollback()
+
+        try:
+            cursor.execute(delete_user_query)
+            db.commit()
+            print((strings.delete_success).format(u_name,'USERS'))
+
+        except:
+            print((strings.delete_failed).format(u_name,'USERS'))
+            db.rollback()
+
+        db.close()
 
 
     '''
@@ -152,16 +206,15 @@ class TrustyDb(object):
                                 R_NAME, R_DATA, R_UNAME, R_UID ) VALUES (
                                 '%s', '%s', '%s', (SELECT U_ID FROM USERS WHERE
                                 U_NAME = '%s') )""" % (r_name, r_data, r_usr, r_usr)
-
-        print('Query to add {}'.format(add_reminder_query))
+        print(add_reminder_query)
 
         try:
             cursor.execute(add_reminder_query)
             db.commit()
-            print('Added reminder successfully!')
+            print((strings.add_success).format('reminder',r_name,'REMINDERS'))
 
         except:
-            print('Failed to add reminder!')
+            print((strings.add_failed).format('reminder',r_name,'REMINDERS'))
             db.rollback()
 
         db.close()
@@ -181,24 +234,25 @@ class TrustyDb(object):
         get_reminders_query = """SELECT * FROM REMINDERS WHERE
                                  R_UID = (SELECT U_ID FROM USERS WHERE
                                  U_NAME = '%s')""" % u_name
-
-        print('Query to fetch {}'.format(get_reminders_query))
+        print(get_reminders_query)
 
         try:
             cursor.execute(get_reminders_query)
             rems = cursor.fetchall()
+            print((strings.get_success).format(u_name,'REMINDERS'))
             for row in rems:
                 print('R_ID: {0} | R_NAME: {1} | R_DATA: {2}'.format(
                     row[0], row[1], row[2]))
-
             db.close()
+
             return rems
 
         except:
-            print('Failed to fetch reminders!')
-
+            print((strings.get_failed).format(u_name,'REMINDERS'))
             db.close()
+
             return 0
+
 
     '''
     function: add_location
@@ -218,16 +272,15 @@ class TrustyDb(object):
                                 '%s', '%s', '%s', '%s',
                                 (SELECT U_ID FROM USERS WHERE U_NAME = '%s')
                                  )""" % (u_name, lon, lat, dt, u_name)
-
-        print('Query to add {}'.format(add_location_query))
+        print(add_location_query)
 
         try:
             cursor.execute(add_location_query)
             db.commit()
-            print('Added location data successfully!')
+            print((strings.add_success).format('location',dt,'LOCATIONS'))
 
         except:
-            print('Failed to add location data!')
+            print((strings.add_failed).format('location',dt,'LOCATIONS'))
             db.rollback()
 
         db.close()
@@ -245,9 +298,9 @@ class TrustyDb(object):
         cursor = db.cursor()
 
         get_locations_query = """SELECT * FROM LOCATIONS WHERE L_UID = 
-                                (SELECT U_ID FROM USERS WHERE U_NAME = '%s')""" % u_name
-
-        print('Query to fetch {}'.format(get_locations_query))
+                                 (SELECT U_ID FROM USERS WHERE U_NAME = '%s')
+                                 ORDER BY L_ID DESC""" % u_name
+        print(get_locations_query)
 
         try:
             cursor.execute(get_locations_query)
@@ -256,14 +309,14 @@ class TrustyDb(object):
                 print('L_ID: {0} | L_UNAME: {1} | L_LON: {2} | L_LAT: {3} \
                      | L_DT: {4} | L_UID: {5}'.format(loc[0], loc[1],
                        loc[2], loc[3], loc[4], loc[5]))
-
+            print((strings.get_success).format(u_name,'LOCATIONS'))
             db.close()
+            
             return locs
 
         except:
-            print('Failed to fetch locations!')
-
+            print((strings.get_failed).format(u_name,'LOCATIONS'))
             db.close()
-            return 0
 
+            return 0
 

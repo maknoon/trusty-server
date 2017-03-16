@@ -5,8 +5,8 @@
 (_/     /  \_ (__/    /__/__(_/     (__/_  
                                      //    
                                     (/     
-  
-~ (PROVISIONAL COPY OF) The TrustyCompanion & TrustyTracker's Trusty Backend Server ~
+                                    v0.0.1
+~ (PROVISIONAL COPY OF) The TrustyCompanion & TrustyTracker's Trusty Backend Application ~
 ```
 
 #### Environment Requirements (Ubuntu-optimized):  
@@ -37,6 +37,6 @@ Now you can access server from your commandline by using `$ ssh trusty`
 
 #### Testing on the live server:  
 1. Clone this repository, and make your desired changes.  
-2. `$ rsync -av --exclude config.py /path/to/your/local/trusty-server trusty:trusty-server`  
+2. Navigate to the parent directory of this repository and execute `$ rsync -av --exclude 'trusty-server/res/exclude.txt' /path/to/your/local/trusty-server trusty:trusty-server`  
 3. ssh into the instance (see above)  
 4. Execute `$ sudo apachectl restart` and restart your ssh connection; the server will then restart and you should be able to see changes by navigating to the live hostname.

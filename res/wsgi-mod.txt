@@ -2,8 +2,17 @@
 	WSGIScriptAlias / /var/www/html/trusty-server/trustyserver.wsgi
 
 	<Directory /var/www/html/trusty-server>
-       WSGIProcessGroup trustyserver
-       WSGIApplicationGroup %{GLOBAL}
-       Order deny,allow
-       Allow from all
+	   WSGIProcessGroup trustyserver
+	   WSGIApplicationGroup %{GLOBAL}
+	   Order deny,allow
+	   Allow from all
 	</Directory>
+
+
+mysqladmin -u root -p create trusty
+
+helpful SQL commands:
+
+CREATE USER 'newuser'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON trusty . * TO 'newuser'@'localhost';
+FLUSH PRIVILEGES;

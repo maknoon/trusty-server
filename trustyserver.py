@@ -4,7 +4,7 @@ import config
 import strings
 import json
 from trustydb import TrustyDb
-from flask import Flask, request
+from flask import Flask, request, abort
 from datetime import datetime
 app = Flask(__name__)
 
@@ -48,118 +48,134 @@ def reverse(input_str):
 
 
 # =============================================
-# USERS ENDPOINTS
+# USERS
 # =============================================
 
-# insert a new user into the users table
-@app.route('/users/add', methods=['GET','POST'])
-def add_user():
-    if request.method == 'POST':
-        content = request.get_json()
-        usr_name = content["name"]
-        usr_age = content["age"]
-        usr_addr = content["address"]
+# handler for the users endpoint => USERS
+@app.route('/users', methods=['GET','POST','PUT','DELETE'])
+def handle_users():
+    res_body = (strings.default_resource).format('Users')
+    trustydb = connect_to_db()
+    usr_name = request.args.get('name')
 
-        trustydb = connect_to_db()
+    # GET - fetches user info from query parameter 'name'
+    if request.method == 'GET':
+        user = trustydb.get_user(usr_name)
+
+        if (user == 0): abort(404)
+        else:
+            user_json = {"name":user[1],"age":user[2],"address":user[3]};
+            res_body = json.dumps(user_json, indent=4, separators=(',', ': '))
+
+    # POST - accepts JSON format request body
+    elif request.method == 'POST':
+        req_body = request.get_json()
+        usr_name = req_body["name"]
+        usr_age = req_body["age"]
+        usr_addr = req_body["address"]
+
         trustydb.add_user(usr_name,usr_age,usr_addr)
-        print((strings.added_usr).format(usr_name))
+        res_body = json.dumps(req_body, indent=4, separators=(',', ': '))
 
-        return json.dumps(content, indent=4, separators=(',', ': '))
+    # PUT - updates user info from query parameter 'name'
+    elif request.method == 'PUT':
+        res_body = 'UPDATING {}'.format(usr_name)
 
-    else:
-        return strings.use_post
+    # DELETE - deletes user info from db
+    elif request.method == 'DELETE':
+        trustydb.delete_user(usr_name)
+        res_body = (strings.deleted).format('user', usr_name)
+
+    return res_body
 
 
-# get a user's information given name of the user
-@app.route('/users/get/<usr_name>')
-def get_user(usr_name):
+
+# =============================================
+# REMINDERS
+# =============================================
+
+# handler for the reminders endpoint => REMINDERS
+@app.route('/reminders', methods=['GET','POST','DELETE'])
+def handle_reminders():
+    res_body = (strings.default_resource).format('Reminders')
     trustydb = connect_to_db()
-    user = trustydb.get_user(usr_name)
+    usr_name = request.args.get('name')
 
-    if (user == 0):
-        return strings.user_get_failed
-    else:
-        user_json = {"name":user[1],"age":user[2],"address":user[3]};
-        return json.dumps(user_json, indent=4, separators=(',', ': '))
+    # GET - fetches reminders from query parameter 'name'
+    if request.method == 'GET':
+        reminders = trustydb.get_reminders(usr_name)
 
+        if (reminders == 0): abort(404)
+        else:
+            reminders_json = []
+            for row in reminders:
+                reminder = {"reminder_name":row[1],"reminder_data":row[2]}
+                reminders_json.append(reminder)
 
+            res_body = json.dumps(reminders_json, indent=4, separators=(',', ': '))
 
-# =============================================
-# REMINDERS ENDPOINTS
-# =============================================
+    # POST - accepts JSON format request body
+    elif request.method == 'POST':
+        req_body = request.get_json()
+        r_name = req_body["reminder_name"]
+        r_data = req_body["reminder_data"]
 
-# insert a reminder into the reminders table
-@app.route('/reminders/add/<usr_name>', methods=['GET', 'POST'])
-def add_reminder(usr_name):
-    if request.method == 'POST':
-        content = request.get_json()
-        r_name = content["reminder_name"]
-        r_data = content["reminder_data"]
-
-        trustydb = connect_to_db()
         trustydb.add_reminder(r_name,r_data,usr_name)
+        res_body = json.dumps(req_body, indent=4, separators=(',', ': '))
 
-        return json.dumps(content, indent=4, separators=(',', ': '))
+    # DELETE - deletes user info from db
+    elif request.method == 'DELETE':
+        res_body = strings.todo
 
-    else:
-        return strings.use_post
+    return res_body
 
 
-# get a list of reminders given a user
-@app.route('/reminders/get/<usr_name>')
-def get_reminders(usr_name):
+
+# =============================================
+# LOCATIONS
+# =============================================
+
+# handler for the locations endpoint => LOCATIONS
+@app.route('/locations', methods=['GET','POST'])
+def handle_locations():
+    res_body = (strings.default_resource).format('Locations')
     trustydb = connect_to_db()
-    reminders = trustydb.get_reminders(usr_name)
+    usr_name = request.args.get('name')
+    latest = request.args.get('latest')
 
-    if (reminders == 0):
-        return strings.reminders_get_failed
-    else:
-        reminders_json = []
-        for row in reminders:
-            reminder = {"reminder_name":row[1],"reminder_data":row[2]}
-            reminders_json.append(reminder)
+    # catch some bad inputs
+    if (latest == '' or usr_name == ''): abort(400)
 
-        return json.dumps(reminders_json, indent=4, separators=(',', ': '))
+    # GET - fetches locations from query parameter 'name'
+    if request.method == 'GET':
+        locations = trustydb.get_locations(usr_name)
 
+        if (locations == 0): abort(404)
+        else:
+            # fetch all the locations for a user
+            locations_json = []
+            for loc in locations:
+                dt = loc[4].isoformat()
+                location = {"longitude":loc[2],"latitude":loc[3],"timestamp":dt}
+                locations_json.append(location)
 
+            # if latest is specified, use only latest x locations
+            if latest is None: latest = len(locations_json)
+            else: latest = int(latest)
+            
+            res_body = json.dumps(locations_json[0:latest], indent=4,
+                separators=(',', ': '))
 
-# =============================================
-# LOCATIONS ENDPOINTS
-# =============================================
+    # POST - accepts JSON format request body
+    elif request.method == 'POST':
+        req_body = request.get_json()
+        lon = req_body["longitude"]
+        lat = req_body["latitude"]
 
-# insert a location into the location table
-@app.route('/locations/add/<usr_name>', methods=['GET', 'POST'])
-def add_location(usr_name):
-    if request.method == 'POST':
-        content = request.get_json()
-        lon = content["longitude"]
-        lat = content["latitude"]
-
-        trustydb = connect_to_db()
         trustydb.add_location(lon,lat,usr_name)
+        res_body = json.dumps(req_body, indent=4, separators=(',', ': '))
 
-        return json.dumps(content, indent=4, separators=(',', ': '))
-
-    else:
-        return strings.use_post
-
-
-# get a list of locations given a user
-@app.route('/locations/get/<usr_name>')
-def get_locations(usr_name):
-    trustydb = connect_to_db()
-    locations = trustydb.get_locations(usr_name)
-
-    if (locations == 0):
-        return strings.locations_get_failed
-    else:
-        locations_json = []
-        for loc in locations:
-            dt = loc[4].isoformat()
-            location = {"longitude":loc[2],"latitude":loc[3],"timestamp":dt}
-            locations_json.append(location)
-
-        return json.dumps(locations_json, indent=4, separators=(',', ': '))
+    return res_body
 
 
 
