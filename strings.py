@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 '''GLOBAL RESOURCES FILE'''
 
 # =============================================
@@ -13,6 +15,9 @@ delete_success = 'Successfully deleted {0} in {1}!'
 delete_failed = 'Failed to delete {0} in {1}!'
 
 create_table = 'Created new {0} table in {1}'
+
+update_success = 'Successfully updated {0} in {1} to new value {2}!'
+update_failed = 'Failed to update {0} in {1} to new value {2}!'
 
 # =============================================
 # API
