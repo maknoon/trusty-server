@@ -18,6 +18,8 @@ sudo pip install flask
 echo "Installed flask."
 sudo pip install MySQL-python
 echo "Installed MySQL-python."
+sudo pip install flask-bcrypt
+echo "Installed flask-bcrypt."
 
 TRUSTY='trusty-server'
 mkdir ~/$TRUSTY

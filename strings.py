@@ -24,6 +24,7 @@ update_failed = 'Failed to update {0} in {1} to new value {2}!'
 # =============================================
 default_resource = 'Accessing {} Resource'
 deleted = 'Deleted {0} {1}'
+updated = 'Updated {0} {1}'
 todo = 'Not Yet Implemented'
 
 # =============================================
@@ -31,3 +32,5 @@ todo = 'Not Yet Implemented'
 # =============================================
 greeting = 'Hello Trusty User!'
 reset = 'Reset all tables!'
+garbage_token = 'FFFF-FFFF-FFFF-FFFF'
+auth_failed = 'Failed to authenticate login!'

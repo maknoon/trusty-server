@@ -11,10 +11,13 @@ USERS:
 U_ID (PKEY) | U_NAME VARCHAR(32) | U_AGE (INT) | U_HOME_ADDR VARCHAR(128) | U_PHONE_NUMBER VARCHAR(32)
 
 REMINDERS:
-R_ID (PKEY) | R_NAME VARCHAR(32) | R_DATA VARCHAR(128) | R_DUE DATETIME | R_UNAME VARCHAR(32) | R_UID (U_ID)
+R_ID (PKEY) | R_NAME VARCHAR(32) | R_DATA VARCHAR(128) | R_DUE DATETIME | R_UNAME VARCHAR(32) | R_UID INT (FK U_ID)
 
 LOCATIONS:
-L_ID (PKEY) | L_UNAME VARCHAR(32) | L_LON FLOAT(10,7) | L_LAT FLOAT(10,7) | L_DT DATETIME | L_UID INT
+L_ID (PKEY) | L_UNAME VARCHAR(32) | L_LON FLOAT(10,7) | L_LAT FLOAT(10,7) | L_DT DATETIME | L_UID INT (FK U_ID)
+
+AUTH:
+A_ID (PKEY) | A_NAME VARCHAR(32) UNIQUE | A_PASS BINARY(60) | A_TOKEN VARCHAR(128) | A_UID INT (FK U_ID)
 
 '''
 
@@ -41,6 +44,7 @@ class TrustyDb(object):
         cursor = trusty.cursor()
 
         drop = 'DROP TABLE IF EXISTS {}'
+        cursor.execute(drop.format('AUTH'))
         cursor.execute(drop.format('REMINDERS'))
         cursor.execute(drop.format('LOCATIONS'))
         cursor.execute(drop.format('USERS'))
@@ -76,12 +80,25 @@ class TrustyDb(object):
         cursor.execute(raw_location_query)
         print((strings.create_table).format('LOCATIONS',self.db))
 
+        raw_auth_query = """CREATE TABLE AUTH (
+                             A_ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                             A_NAME VARCHAR(32) NOT NULL UNIQUE,
+                             A_PASS BINARY(60),
+                             A_TOKEN VARCHAR(128),
+                             A_UID INT,
+                             FOREIGN KEY (A_UID) REFERENCES USERS(U_ID) )"""
+        cursor.execute(raw_auth_query)
+        print((strings.create_table).format('AUTH',self.db))
+
         trusty.close()
 
+
+    ## === USERS ===============================================================
 
     '''
     function: add_user
     description: adds a user to the users table
+    returns: the primary key (u_id) of the inserted user (0 if unsuccessful)
     '''
     def add_user(self,u_name,u_age,u_addr,u_pnum):
         db = MySQLdb.connect(host=self.host,
@@ -90,6 +107,7 @@ class TrustyDb(object):
                              db=self.db)
         cursor = db.cursor()
 
+        inserted = 0
         add_user_query = """INSERT INTO USERS (
                             U_NAME, U_AGE, U_HOME_ADDR, U_PHONE_NUMBER ) VALUES (
                             '%s', '%s', '%s', '%s' )""" % (u_name, u_age, u_addr, u_pnum)
@@ -99,12 +117,14 @@ class TrustyDb(object):
             cursor.execute(add_user_query)
             db.commit()
             print((strings.add_success).format('user',u_name,'USERS'))
-
+            inserted = cursor.lastrowid
         except:
             print((strings.add_failed).format('user',u_name,'USERS'))
             db.rollback()
 
         db.close()
+
+        return inserted
 
 
     '''
@@ -169,7 +189,7 @@ class TrustyDb(object):
 
             return 0
 
-    
+
     '''
     function: update_user
     description: updates the user
@@ -181,7 +201,7 @@ class TrustyDb(object):
                              db=self.db)
         cursor = db.cursor()
 
-        update_user_query = """UPDATE USERS SET %s = '%s' WHERE 
+        update_user_query = """UPDATE USERS SET %s = '%s' WHERE
                             U_ID = %s""" % (field, new_value, u_id)
         print(update_user_query)
         try:
@@ -199,55 +219,70 @@ class TrustyDb(object):
     function: delete_user
     description: delete all data of a user given the user_name
     '''
-    def delete_user(self,u_name):
+    def delete_user(self,u_id):
         db = MySQLdb.connect(host=self.host,
                              user=self.user,
                              passwd=self.pw,
                              db=self.db)
         cursor = db.cursor()
 
+        delete_u_auth_query = """DELETE FROM AUTH WHERE
+                                 A_UID = '%s'""" % (u_id)
         delete_u_reminders_query = """DELETE FROM REMINDERS WHERE
-                                      R_UID = (SELECT U_ID FROM USERS WHERE
-                                      U_NAME = '%s')""" % (u_name)
+                                      R_UID = '%s'""" % (u_id)
         delete_u_locations_query = """DELETE FROM LOCATIONS WHERE
-                                      L_UID = (SELECT U_ID FROM USERS WHERE
-                                      U_NAME = '%s')""" % (u_name)
+                                      L_UID = '%s'""" % (u_id)
         delete_user_query = """DELETE FROM USERS WHERE
-                               U_NAME = '%s'""" % (u_name)
+                               U_ID = '%s'""" % (u_id)
 
+        print(delete_u_auth_query)
         print(delete_u_reminders_query)
         print(delete_u_locations_query)
         print(delete_user_query)
 
+        # remove auth
+        try:
+            cursor.execute(delete_u_auth_query)
+            db.commit()
+            print((strings.delete_success).format(u_id,'AUTH'))
+
+        except:
+            print((strings.delete_failed).format(u_id,'AUTH'))
+            db.rollback()
+
+        # remove reminders
         try:
             cursor.execute(delete_u_reminders_query)
             db.commit()
-            print((strings.delete_success).format(u_name,'REMINDERS'))
+            print((strings.delete_success).format(u_id,'REMINDERS'))
 
         except:
-            print((strings.delete_failed).format(u_name,'REMINDERS'))
+            print((strings.delete_failed).format(u_id,'REMINDERS'))
             db.rollback()
 
+        # remove locations
         try:
             cursor.execute(delete_u_locations_query)
             db.commit()
-            print((strings.delete_success).format(u_name,'LOCATIONS'))
+            print((strings.delete_success).format(u_id,'LOCATIONS'))
 
         except:
-            print((strings.delete_failed).format(u_name,'LOCATIONS'))
+            print((strings.delete_failed).format(u_id,'LOCATIONS'))
             db.rollback()
 
+        # remove user
         try:
             cursor.execute(delete_user_query)
             db.commit()
-            print((strings.delete_success).format(u_name,'USERS'))
+            print((strings.delete_success).format(u_id,'USERS'))
 
         except:
-            print((strings.delete_failed).format(u_name,'USERS'))
+            print((strings.delete_failed).format(u_id,'USERS'))
             db.rollback()
 
         db.close()
 
+    ## === REMINDERS ===========================================================
 
     '''
     function: add_reminder
@@ -262,8 +297,8 @@ class TrustyDb(object):
 
         add_reminder_query = """INSERT INTO REMINDERS (
                                 R_NAME, R_DATA, R_DUE, R_UNAME, R_UID ) VALUES (
-                                '%s', '%s', '%s', '%s', (SELECT U_ID FROM USERS WHERE
-                                U_NAME = '%s') )""" % (r_name, r_data, r_due, r_usr, r_usr)
+                                '%s', '%s', '%s', (SELECT U_NAME FROM USERS WHERE
+                                U_ID = '%s'), '%s' )""" % (r_name, r_data, r_due, r_usr, r_usr)
         print(add_reminder_query)
 
         try:
@@ -396,11 +431,13 @@ class TrustyDb(object):
 
         db.close()
 
+    ## === LOCATIONS ===========================================================
+
     '''
     function: add_location
     description: adds a reminder to the reminders table
     '''
-    def add_location(self,lon,lat,u_name):
+    def add_location(self,lon,lat,u_id):
         db = MySQLdb.connect(host=self.host,
                              user=self.user,
                              passwd=self.pw,
@@ -411,9 +448,7 @@ class TrustyDb(object):
 
         add_location_query = """INSERT INTO LOCATIONS (
                                 L_UNAME, L_LON, L_LAT, L_DT, L_UID ) VALUES (
-                                '%s', '%s', '%s', '%s',
-                                (SELECT U_ID FROM USERS WHERE U_NAME = '%s')
-                                 )""" % (u_name, lon, lat, dt, u_name)
+                                (SELECT U_NAME FROM USERS WHERE U_ID = '%s'), '%s', '%s', '%s', '%s')""" % (u_id, lon, lat, dt, u_id)
         print(add_location_query)
 
         try:
@@ -432,7 +467,7 @@ class TrustyDb(object):
     function: get_locations
     description: fetches locations given the user_name
     '''
-    def get_locations(self,u_name):
+    def get_locations(self,u_id):
         db = MySQLdb.connect(host=self.host,
                              user=self.user,
                              passwd=self.pw,
@@ -440,8 +475,7 @@ class TrustyDb(object):
         cursor = db.cursor()
 
         get_locations_query = """SELECT * FROM LOCATIONS WHERE L_UID =
-                                 (SELECT U_ID FROM USERS WHERE U_NAME = '%s')
-                                 ORDER BY L_ID DESC""" % u_name
+                                 '%s' ORDER BY L_ID DESC""" % u_id
         print(get_locations_query)
 
         try:
@@ -451,13 +485,92 @@ class TrustyDb(object):
                 print('L_ID: {0} | L_UNAME: {1} | L_LON: {2} | L_LAT: {3} \
                      | L_DT: {4} | L_UID: {5}'.format(loc[0], loc[1],
                        loc[2], loc[3], loc[4], loc[5]))
-            print((strings.get_success).format(u_name,'LOCATIONS'))
+            print((strings.get_success).format(u_id,'LOCATIONS'))
             db.close()
 
             return locs
 
         except:
-            print((strings.get_failed).format(u_name,'LOCATIONS'))
+            print((strings.get_failed).format(u_id,'LOCATIONS'))
             db.close()
 
             return 0
+
+    ## === AUTH ================================================================
+
+    '''
+    function: get_auth
+    description: fetches the auth information associated with the given u_name
+    '''
+    def get_auth(self, u_name):
+        db = MySQLdb.connect(host=self.host,
+                             user=self.user,
+                             passwd=self.pw,
+                             db=self.db)
+        cursor = db.cursor()
+
+        get_auth_query = """SELECT * FROM AUTH WHERE A_NAME = '%s'""" % u_name
+        print(get_auth_query)
+
+        try:
+            cursor.execute(get_auth_query)
+            auths = cursor.fetchone()
+            print((strings.get_success).format(u_name,'AUTH'))
+            print('A_UID: {0} | A_NAME: {1} | A_PASS: {2} | A_TOKEN: {3}'.format(auths[4], auths[1], auths[2], auths[3]))
+            db.close()
+            return auths
+
+        except:
+            print((strings.get_failed).format(u_name,'AUTH'))
+            db.close()
+
+    '''
+    function: add_auth
+    description: associates the given auth info with the given u_id
+    '''
+    def add_auth(self, u_id, name, pw, token):
+        db = MySQLdb.connect(host=self.host,
+                             user=self.user,
+                             passwd=self.pw,
+                             db=self.db)
+        cursor = db.cursor()
+
+        add_auth_query = """INSERT INTO AUTH (A_UID, A_NAME, A_PASS, A_TOKEN) 
+                            VALUES ('%s', '%s', '%s', '%s')""" % (u_id, name, pw, token)
+        print(add_auth_query)
+
+        try:
+            cursor.execute(add_auth_query)
+            db.commit()
+            print((strings.add_success).format('auth info', u_id,'AUTH'))
+
+        except:
+            print((strings.add_failed).format('auth info', u_id,'AUTH'))
+            db.rollback()
+            
+        db.close()
+
+    '''
+    function: update_auth
+    description: changes the password or token for the given u_id
+    '''
+    def update_auth(self, u_id, field, new_val):
+        db = MySQLdb.connect(host=self.host,
+                             user=self.user,
+                             passwd=self.pw,
+                             db=self.db)
+        cursor = db.cursor()
+
+        update_auth_query = """UPDATE AUTH SET %s = '%s' WHERE A_UID = '%s'""" % (field, new_val, u_id)
+        print(update_auth_query)
+
+        try:
+            cursor.execute(update_auth_query)
+            db.commit()
+            print((strings.update_success).format(u_id, field, new_val))
+        except:
+            print((strings.update_failed).format(u_id, field, new_val))
+            db.rollback()
+
+        db.close()
+
