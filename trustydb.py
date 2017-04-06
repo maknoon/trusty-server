@@ -17,7 +17,7 @@ LOCATIONS:
 L_ID (PKEY) | L_UNAME VARCHAR(32) | L_LON FLOAT(10,7) | L_LAT FLOAT(10,7) | L_DT DATETIME | L_UID INT (FK U_ID)
 
 AUTH:
-A_ID (PKEY) | A_NAME VARCHAR(32) UNIQUE | A_PASS BINARY(60) | A_TOKEN VARCHAR(128) | A_UID INT (FK U_ID)
+A_ID (PKEY) | A_NAME VARCHAR(32) UNIQUE | A_PASS BINARY(60) | A_TOKEN VARCHAR(256) | A_UID INT (FK U_ID)
 
 '''
 
@@ -60,7 +60,7 @@ class TrustyDb(object):
 
         raw_reminders_query = """CREATE TABLE REMINDERS (
                                  R_ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                                 R_NAME VARCHAR(32),
+                                 R_NAME VARCHAR(60),
                                  R_DATA VARCHAR(128),
                                  R_DUE DATETIME,
                                  R_UNAME VARCHAR(32),
@@ -84,7 +84,7 @@ class TrustyDb(object):
                              A_ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                              A_NAME VARCHAR(32) NOT NULL UNIQUE,
                              A_PASS BINARY(60),
-                             A_TOKEN VARCHAR(128),
+                             A_TOKEN VARCHAR(256),
                              A_UID INT,
                              FOREIGN KEY (A_UID) REFERENCES USERS(U_ID) )"""
         cursor.execute(raw_auth_query)
@@ -362,14 +362,13 @@ class TrustyDb(object):
 
         try:
             cursor.execute(get_reminders_query)
-            rems = cursor.fetchall()
+            rem = cursor.fetchone()
             print((strings.get_success).format(r_id,'REMINDERS'))
-            for row in rems:
-                print('R_ID: {0} | R_NAME: {1} | R_DATA: {2} | R_DUE: {3}'.format(
-                    row[0], row[1], row[2], row[3]))
+            print('R_ID: {0} | R_NAME: {1} | R_DATA: {2} | R_DUE: {3}'.format(
+                    rem[0], rem[1], rem[2], rem[3]))
             db.close()
 
-            return rems
+            return rem
 
         except:
             print((strings.get_failed).format(r_id,'REMINDERS'))
@@ -430,6 +429,33 @@ class TrustyDb(object):
             db.rollback()
 
         db.close()
+
+    '''
+    function: delete_all_reminders
+    description: deletes all the reminders associated with the given user id
+    '''
+    def delete_all_reminders(self, u_id):
+        db = MySQLdb.connect(host=self.host,
+                             user=self.user,
+                             passwd=self.pw,
+                             db=self.db)
+        cursor = db.cursor()
+
+        delete_rb_query = """DELETE FROM REMINDERS WHERE
+                             R_UID = '%s'""" % u_id
+        print(delete_rb_query)
+
+        try:
+            cursor.execute(delete_rb_query)
+            db.commit()
+            print((strings.delete_success).format('all','REMINDERS for user'))
+
+        except:
+            print((strings.delete_failed).format('all','REMINDERS for user'))
+            db.rollback()
+
+        db.close()
+
 
     ## === LOCATIONS ===========================================================
 
@@ -535,7 +561,7 @@ class TrustyDb(object):
                              db=self.db)
         cursor = db.cursor()
 
-        add_auth_query = """INSERT INTO AUTH (A_UID, A_NAME, A_PASS, A_TOKEN) 
+        add_auth_query = """INSERT INTO AUTH (A_UID, A_NAME, A_PASS, A_TOKEN)
                             VALUES ('%s', '%s', '%s', '%s')""" % (u_id, name, pw, token)
         print(add_auth_query)
 
@@ -547,7 +573,7 @@ class TrustyDb(object):
         except:
             print((strings.add_failed).format('auth info', u_id,'AUTH'))
             db.rollback()
-            
+
         db.close()
 
     '''
@@ -573,4 +599,3 @@ class TrustyDb(object):
             db.rollback()
 
         db.close()
-

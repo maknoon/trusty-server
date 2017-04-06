@@ -4,7 +4,7 @@ import config
 import strings
 import json
 from trustydb import TrustyDb
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template
 from flask.ext.bcrypt import Bcrypt
 from datetime import datetime
 app = Flask(__name__)
@@ -70,19 +70,19 @@ def handle_users():
                         "address":user[3],"phone_number":user[4]};
             res_body = json.dumps(user_json, indent=4, separators=(',', ': '))
 
-    # POST - accepts JSON format request body
+    # POST - accepts x-www-form-urlendcoded format request body
     elif request.method == 'POST':
-        req_body = request.get_json()
-
-        usr_name = req_body["name"]
-        usr_age = req_body["age"]
-        usr_addr = req_body["address"]
-        usr_pnum = req_body["phone_number"]
+        usr_name = request.form["name"]
+        usr_age = request.form["age"]
+        usr_addr = request.form["address"]
+        usr_pnum = request.form["phone_number"]
 
         # required when a new user is made
-        usr_uname = req_body["username"]
-        usr_passw = req_body["password"]
-        
+        usr_uname = request.form["username"]
+        usr_passw = request.form["password"]
+
+        registered = {}
+        res_body = strings.todo
         insert_id = trustydb.add_user(usr_name,usr_age,usr_addr,usr_pnum)
         if (insert_id == 0): abort(501)
         else:
@@ -91,7 +91,11 @@ def handle_users():
             trustydb.add_auth(insert_id,usr_uname,password,strings.garbage_token)
             # TODO if the above fails, delete the successfully-inserted user
 
-        res_body = json.dumps(req_body, indent=4, separators=(',', ': '))
+            registered = {"id":insert_id,"name":usr_name,"age":usr_age,
+                          "address":usr_addr,"phone_number":usr_pnum}
+
+        res_body_json = json.dumps(registered, indent=4, separators=(',', ': '))
+        res_body = render_template('registered.html', req_body=res_body_json)
 
     # PUT - updates user info from query parameter 'name'
     elif request.method == 'PUT':
@@ -136,6 +140,11 @@ def handle_users():
 # AUTH
 # =============================================
 
+# handles user registration
+@app.route('/register', methods=['GET'])
+def handle_register():
+    return render_template('register.html')
+
 # handles user login behavior
 # NOTE: endpoint accepts Content-Type: application/x-www-form-urlencoded
 @app.route('/login', methods=['GET','POST'])
@@ -145,7 +154,7 @@ def handle_login():
 
     # GET should show the login form to the user
     if request.method == 'GET':
-        res_body = strings.todo
+        return render_template('login.html')
 
     # user should login and retrieve their id from this endpoint
     elif request.method == 'POST':
@@ -164,7 +173,7 @@ def handle_login():
             else:
                 print(strings.auth_failed)
                 abort(401)
-    
+
     return res_body
 
 
@@ -180,26 +189,25 @@ def handle_token():
     res_body = (strings.default_resource).format('Auth')
     trustydb = connect_to_db()
     u_name = request.args.get('username')
+    u_id = request.args.get('id')
 
     # get the token associated w/ the provided username
     if request.method == 'GET':
         auth = trustydb.get_auth(u_name)
         if (auth == 0): abort(404)
         else:
-            auth_json = {"username":auth[1],"token":auth[3]}
+            auth_json = {"id":auth[0],"username":auth[1],"token":auth[3]}
             res_body = json.dumps(auth_json, indent=4, separators=(',', ': '))
 
     # change the token associated w/ the provided username
     elif request.method == 'PUT':
+        if u_id is None: abort(400)
+
         req_body = request.get_json()
         a_token = req_body["token"]
 
-        u_id = (trustydb.get_auth(u_name))[0] #we only need the U_ID for this operation
         trustydb.update_auth(u_id,'A_TOKEN',a_token)
-
-        auth = trustydb.get_auth(u_name)
-        if auth == 0: abort(400)
-        else: res_body = (strings.updated).format("token to",auth[3])
+        res_body = (strings.updated).format("token to",a_token)
 
     return res_body
 
@@ -214,7 +222,6 @@ def handle_reminders():
     res_body = (strings.default_resource).format('Reminders')
     trustydb = connect_to_db()
     usr_id = request.args.get('id')
-    usr_name = request.args.get('name')
 
     # GET - fetches reminders from query parameter 'id'
     if request.method == 'GET':
@@ -246,7 +253,7 @@ def handle_reminders():
         r_id = request.args.get('id')
 
         req_body = request.get_json()
-        reminder = trustydb.get_remind(r_id);
+        reminder = trustydb.get_remind(r_id)
 
         if (reminder == 0): abort(404)
         else:
@@ -254,50 +261,39 @@ def handle_reminders():
                 new_name = req_body["reminder_name"]
                 trustydb.update_remind(r_id, 'R_NAME', new_name)
 
-                # Return the new reminder
-                reminders_json = []
-                reminders = trustydb.get_remind(r_id)
-                for row in reminders:
-                    reminder = {"reminder_id":row[0],"reminder_name":row[1],
-                                "reminder_data":row[2],"reminder_due":row[3].isoformat()}
-                    reminders_json.append(reminder)
-                res_body = json.dumps(reminders_json, indent=4, separators=(',', ': '))
-
             if "reminder_data" in req_body:
                 new_body = req_body["reminder_data"]
                 trustydb.update_remind(r_id, 'R_DATA', new_body)
 
-                # Return the new reminder
-                reminders_json = []
-                reminders = trustydb.get_remind(r_id)
-                for row in reminders:
-                    reminder = {"reminder_id":row[0],"reminder_name":row[1],
-                                "reminder_data":row[2],"reminder_due":row[3].isoformat()}
-                    reminders_json.append(reminder)
-                res_body = json.dumps(reminders_json, indent=4, separators=(',', ': '))
-
             if "reminder_due" in req_body:
-                new_body = req_body["reminder_due"]
+                due_dt = req_body["reminder_due"]
                 trustydb.update_remind(r_id, 'R_DUE', due_dt)
 
-                # Return the new reminder
-                reminders_json = []
-                reminders = trustydb.get_remind(r_id)
-                for row in reminders:
-                    reminder = {"reminder_id":row[0],"reminder_name":row[1],
-                                "reminder_data":row[2],"reminder_due":row[3].isoformat()}
-                    reminders_json.append(reminder)
-                res_body = json.dumps(reminders_json, indent=4, separators=(',', ': '))
+            # Return the new reminder
+            new_reminder = trustydb.get_remind(r_id)
+            reminder_json = {"reminder_id":new_reminder[0],"reminder_name":new_reminder[1],
+                            "reminder_data":new_reminder[2],"reminder_due":new_reminder[3].isoformat()}
+            res_body = json.dumps(reminder_json, indent=4, separators=(',', ': '))
 
     # DELETE - deletes user info from db
     elif request.method == 'DELETE':
         r_id = request.args.get('id')
+        delete_all = (request.args.get('deleteAll') == 'True')
 
-        reminders = trustydb.get_remind(r_id);
-        if (reminders == 0): abort(404)
+        print(delete_all)
+
+        if delete_all is None: abort(400)
+
+        elif delete_all:
+            trustydb.delete_all_reminders(r_id)
+            res_body = (strings.deleted).format('all reminders for user', r_id)
+
         else:
-            trustydb.delete_reminder(r_id);
-            res_body = (strings.deleted).format('reminder', '{0}: {1}'.format(r_id,reminders[0][1]))
+            reminders = trustydb.get_remind(r_id)
+            if (reminders == 0): abort(404)
+            else:
+                trustydb.delete_reminder(r_id)
+                res_body = (strings.deleted).format('reminder', '{0}: {1}'.format(r_id,reminders[0][1]))
 
     return res_body
 

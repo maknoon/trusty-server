@@ -1,0 +1,15 @@
+<head>
+  <link rel="stylesheet" href="/static/style.css" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Lato|Roboto" rel="stylesheet">
+  <style>
+    *{font-family:'Roboto', sans-serif;}
+  </style>
+</head>
+
+<div class="wrapper">
+  <h1 class="title"> Trusty </h1>
+  <h3 class="sub">Registration Successful!</h3>
+  <div class="container">
+    <p> Registration information: {{req_body|tojson|safe}} </p>
+  </div>
+</div>

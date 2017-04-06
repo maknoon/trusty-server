@@ -1,0 +1,36 @@
+/*
+ * COLORS
+ * trusty-gold: #eedd82;
+ * trusty-grey: #d3d3d3;
+ */
+
+
+body {
+    background-color: #eedd82;
+    padding: 10px;
+    margin: 50px;
+}
+
+h3 {
+    color: black;
+}
+
+input {
+    text-align: center;
+    background-color: #d3d3d3;
+    border: 2px solid;
+    border-radius: 3px;
+    color: black;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 0;
+    margin: 2px;
+    width: 250px;
+}
+
+.title {
+  color: #538cc6;
+}
+
+.sub {
+}
